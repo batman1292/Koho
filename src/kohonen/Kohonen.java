@@ -26,6 +26,14 @@ public class Kohonen {
     static String input_name[] = new String[num_sample];
     static double error[] = new double[num_sample];
 
+    static double ETA_TIME_CONST = 4000;
+    static double SIGMA_TIME_CONST = 4000;
+    static int MAX_EPOCH = 2000;
+    static double sigma_init = 0.9;
+    static double eta_init = 0.9;
+
+    static double mse_error[] = new double[2000];
+
     /**
      * @param args the command line arguments
      */
@@ -34,44 +42,115 @@ public class Kohonen {
         readData();
         random_weight();
 
-        /* show input 
-         for (int i=0; i < input.length; i++) {
-         for (int j=0; j < input[i].length; j++) {
-         System.out.print("input[" + i + "][" + j + "]=" + input[i][j] + ",");
-         }
-         System.out.println("type_input[" + i + "]=" + type_input[i]);
-         }
-         */
-        /* show weight 
-         int count = 0;
-         for (int i = 0; i < grid_size; i++) {
-         for (int j = 0; j < grid_size; j++) {
-         for (int k = 0; k < input_vec_dim; k++) {
-         count++;
-         System.out.println("weight[" + i + "][" + j + "][" + k + "]=" + weight[i][j][k] + ",count=" + count);
-         }
-         }
-         }
-         */
-        for (int num_iteration = 0; num_iteration < num_sample; num_iteration++) {
+        //train 
+        double distance, new_distance;
+
+        int num_epoch,
+                num_iteration,
+                iteration_counter = 0;
+
+        int nearest_weight_row_index, nearest_weight_column_index;
+
+        double distance_sq_between_neuron,
+                neighbour_function;
+
+        double error_n[] = new double[num_sample];
+
+        double eta, sigma;
+
+        for (num_epoch = 0; num_epoch < MAX_EPOCH; ++num_epoch) {
+            for (num_iteration = 0; num_iteration < num_sample; num_iteration++) {
+                /* Find the nearest weight to the current training pattern */
+                double sum = 0.0;
+
+                for (int i = 0; i < input_vec_dim; ++i) {
+                    sum += (input[num_iteration][i] - weight[0][0][i])
+                            * (input[num_iteration][i] - weight[0][0][i]);
+                }
+                distance = Math.sqrt(sum);
+                nearest_weight_row_index = 0;
+                nearest_weight_column_index = 0;
+                
+
+                for (int i = 0; i < grid_size; i++) {
+                    for (int j = 0; j < grid_size; j++) {
+                        sum = 0.0;
+                        for (int k = 0; k < input_vec_dim; k++) {
+                            sum += (input[num_iteration][k] - weight[i][j][k])
+                                    * (input[num_iteration][k] - weight[i][j][k]);
+                        }
+                        new_distance = Math.sqrt(sum);
+
+                        if (new_distance < distance) {
+                            distance = new_distance;
+                            nearest_weight_row_index = i;
+                            nearest_weight_column_index = j;
+                        }
+                    } /* for */
+
+                } /* for */
+
+                /* Calculate error between the nearest centre and the current
+                 training pattern */
+                error_n[num_iteration] = 0.0;
+                for (int i = 0; i < input_vec_dim; i++) {
+                    error_n[num_iteration]
+                            += (input[num_iteration][i] - weight[nearest_weight_row_index][nearest_weight_column_index][i])
+                            * (input[num_iteration][i] - weight[nearest_weight_row_index][nearest_weight_column_index][i]);
+                }
+
+                /* adjust width of Gaussian neighbourhood function */
+                sigma = sigma_init * Math.exp(-(iteration_counter / SIGMA_TIME_CONST));
+
+                /* adjust learning rate parameter */
+                eta = eta_init * Math.exp(-(iteration_counter / ETA_TIME_CONST));
+
+                /* Adjust connection weight */
+                for (int i = 0; i < grid_size; ++i) {
+                    for (int j = 0; j < grid_size; ++j) {
+
+                        /* calculate distance between winning neuron and 
+                         current neuron */
+                        distance_sq_between_neuron
+                                = (double) ((i - nearest_weight_row_index) * (i - nearest_weight_row_index)
+                                + (j - nearest_weight_column_index) * (j - nearest_weight_column_index));
+
+                        /* calculate pi(i,j) */
+                        neighbour_function = Math.exp(-distance_sq_between_neuron / (2.0 * sigma * sigma));
+
+                        /* adjust connection weight */
+                        for (int k = 0; k < input_vec_dim; ++k) {
+                            weight[i][j][k] += eta * neighbour_function * (input[num_iteration][k] - weight[i][j][k]);
+                        }
+                    }
+                }
+                iteration_counter++;
+            }
+            System.out.println("distance=" + distance);
+            num_iteration--;
+
+//            System.out.println("number of iterations = " + num_iteration);
+            mse_error[num_epoch] = 0.0;
+            for (int i = 0; i < num_sample; ++i) {
+                mse_error[num_epoch] += error_n[num_iteration];
+            }
+            mse_error[num_epoch] = mse_error[num_epoch] / (double) num_sample;
+        }
+        System.out.println("Total number of iterations = " + iteration_counter);
+//        test
+        for (num_iteration = 0; num_iteration < num_sample; num_iteration++) {
             /* Find the nearest weight to the current training pattern */
             double sum = 0.0;
-            
-            double distance, new_distance;
-            
-            int nearest_weight_row_index, nearest_weight_column_index;
-            
-            double eta, sigma;
-            
+
             for (int i = 0; i < input_vec_dim; ++i) {
                 sum += (input[num_iteration][i] - weight[0][0][i])
                         * (input[num_iteration][i] - weight[0][0][i]);
             }
+//            System.out.println("test sum =" + sum);
             distance = Math.sqrt(sum);
             nearest_weight_row_index = 0;
             nearest_weight_column_index = 0;
-            System.out.println("distance=" + distance);
-
+//System.out.println("test distance=" + distance);
             for (int i = 0; i < grid_size; i++) {
                 for (int j = 0; j < grid_size; j++) {
                     sum = 0.0;
@@ -89,26 +168,14 @@ public class Kohonen {
                 } /* for */
 
             } /* for */
-
-            /* Calculate error between the nearest centre and the current
-             training pattern */
-            error[num_iteration] = 0.0;
-            for (int i = 0; i < input_vec_dim; i++) {
-                error[num_iteration]
-                        += (input[num_iteration][i] - weight[nearest_weight_row_index][nearest_weight_column_index][i])
-                        * (input[num_iteration][i] - weight[nearest_weight_row_index][nearest_weight_column_index][i]);
-            }
-
-            /* adjust width of Gaussian neighbourhood function */
-            //sigma = sigma_ini * exp(-(double) (iteration_counter) / SIGMA_TIME_CONST);
-
-            /* adjust learning rate parameter */
-            //eta = eta_ini * exp(-(double) (iteration_counter) / ETA_TIME_CONST);
+            System.out.print("at num_iteration " + num_iteration + "\t");
+//            System.out.print("nearest_weight_row_index = " + nearest_weight_row_index + "\t");
+//            System.out.println("nearest_weight_column_index = " + nearest_weight_column_index + "\t");
         }
     }
 
     public static void readData() {
-        String path = "D:\\anatoliy\\MEE-Term2\\Intelligence System\\Kohonen\\animal.txt";
+        String path = "D:\\BVH\\MEE\\Intelligent System\\Task3\\koho\\src\\animal.txt";
         File file = new File(path);
         try {
             BufferedReader br = new BufferedReader(new FileReader(file));
